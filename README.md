@@ -16,7 +16,7 @@ Python 3.10 or newer is required. Run `python serve.py`, then open [http://127.0
 
 ## Walkthrough
 
-[Watch the narrated walkthrough of the original sample-venue flow](https://access-scout-vibeathon.vercel.app/access-scout-walkthrough.mp4).
+[Watch the narrated walkthrough of the current upload-to-itinerary flow](https://access-scout-vibeathon.vercel.app/access-scout-walkthrough.mp4).
 
 1. Select **Try 17:30**. Library Gate is open and the venue fixture documents a step-free entrance and path.
 2. Select **Try 18:30**. Library Gate has closed, Main Gate has steps, and Garden Gate lacks entrance evidence. The app gives the visitor a specific question to ask the venue.
@@ -36,6 +36,8 @@ The coordinator sends A2A v0.3 JSON-RPC `message/send` envelopes and reads struc
 ## Verify and deploy
 
 Run `python -m unittest discover -s tests -v`. Import the single-branch GitHub repository into Vercel as an Other project with the root directory set to the repository root. Vercel serves `public/` and runs the Python API from `api/scout.py`. Environment variables are optional.
+
+The suite covers demo gate boundaries, uploaded-guide planning, session overlaps and attendance windows, unconfirmed access, input limits, A2A handoffs, model fallback, and mocked traffic success and failure. Live browser checks used one sample PDF and one sample image. Production traffic and model calls depend on provider credentials.
 
 ## Assumptions
 
