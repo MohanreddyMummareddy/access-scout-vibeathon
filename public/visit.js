@@ -41,8 +41,7 @@ function loadOcr() {
 }
 
 async function recognize(image) {
-  await loadOcr();
-  const worker = await window.Tesseract.createWorker("eng", 1);
+  const worker = await createOcrWorker();
   try {
     const { data } = await worker.recognize(image);
     return data.text;
@@ -51,11 +50,17 @@ async function recognize(image) {
   }
 }
 
+async function createOcrWorker() {
+  await loadOcr();
+  return window.Tesseract.createWorker("eng", 1);
+}
+
 async function readPdf(file) {
   const base = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/";
   const pdfjs = await import(base + "pdf.min.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = base + "pdf.worker.min.mjs";
   const documentTask = pdfjs.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false });
+  let worker;
   try {
     const pdf = await documentTask.promise;
     const pages = [];
@@ -71,13 +76,15 @@ async function readPdf(file) {
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
         await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
-        text = await recognize(canvas);
+        worker ??= await createOcrWorker();
+        const { data } = await worker.recognize(canvas);
+        text = data.text;
       }
       pages.push(text);
     }
     return { text: pages.join("\n"), limited: pdf.numPages > 4 };
   } finally {
-    await documentTask.destroy();
+    await Promise.all([documentTask.destroy(), worker?.terminate()]);
   }
 }
 

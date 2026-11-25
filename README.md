@@ -31,7 +31,7 @@ The Needs Interpreter runs `validate_context` then `interpret_needs`. The Route 
 
 Agents use a bounded action-and-observation loop. The default uses deterministic tool selection and requires no account. Set the server-side `OPENAI_API_KEY` and optionally `OPENAI_MODEL` for model-assisted tool selection. Calls that fail or select an action out of order fall back to the deterministic action, with the mode visible in the trace.
 
-The coordinator sends A2A v0.3 JSON-RPC `message/send` envelopes and reads structured task artifacts. By default these run through the same dispatcher in process. To use HTTP between the coordinator and agents, set `SCOUT_A2A_ORIGIN` to the deployment origin. Public Agent Cards are available at `/api/scout/agents/{needs|routes|evidence}/.well-known/agent-card.json`. The prototype implements single-turn messages, without streaming or persistent task storage.
+The sample and event flows declare their tools, input dependencies, outputs, and trace summaries in a shared step runner. Add a tool by declaring its step in the workflow and providing the corresponding Python function. The coordinator sends A2A v0.3 JSON-RPC `message/send` envelopes and reads structured task artifacts. The production demo dispatches in process to avoid three HTTP calls to itself. Set `SCOUT_A2A_ORIGIN` to opt into network handoffs. Public Agent Cards are available at `/api/scout/agents/{needs|routes|evidence}/.well-known/agent-card.json`. The prototype implements single-turn messages, without streaming or persistent task storage.
 
 ## Verify and deploy
 

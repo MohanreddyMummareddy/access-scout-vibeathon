@@ -7,7 +7,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
-from agents import post_json
+from agents import plan_route, post_json
 from serve import LocalHandler
 
 
@@ -79,3 +79,5 @@ Recital | 18:45–20:00"""
         self.assertTrue(plan["sessions"][1]["overlaps"])
         self.assertEqual(plan["traffic"]["status"], "unavailable")
         self.assertEqual(len(plan["trace"]), 6)
+        with patch.dict(os.environ, {"SCOUT_A2A_ORIGIN": ""}):
+            self.assertEqual(plan_route(request, event=True), plan)

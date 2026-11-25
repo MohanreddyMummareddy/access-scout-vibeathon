@@ -12,20 +12,62 @@ from event_guide import (build_itinerary, classify_gates, fetch_traffic, finaliz
                          read_guide, read_visit)
 
 
+from workflow import ToolStep, run_steps
+
+
+def gate_observation(routes: list[dict]) -> str:
+    return ", ".join(
+        f'{route["gate"]}: {route.get("status", "open" if route["open"] else "closed")}'
+        for route in routes
+    )
+
+
 AGENTS = {
-    "needs": ("Needs Interpreter", (validate_context, interpret_needs)),
-    "routes": ("Route Planner", (load_venue, evaluate_schedule)),
-    "evidence": ("Evidence Verifier", (check_evidence, choose_route)),
+    "needs": "Needs Interpreter",
+    "routes": "Route Planner",
+    "evidence": "Evidence Verifier",
 }
 PREFIX = "/api/scout"
-VISIT_TOOLS = {
-    "needs": ((read_guide, ("request",), "guide"), (read_visit, ("request", "guide"), "context")),
-    "routes": ((build_itinerary, ("guide", "context"), "itinerary"),
-               (fetch_traffic, ("context", "itinerary"), "traffic")),
-    "evidence": ((classify_gates, ("guide", "context"), "options"),
-                 (finalize_visit, ("options", "itinerary", "traffic", "guide", "context"), "plan")),
+SAMPLE_TOOLS = {
+    "needs": (
+        ToolStep(validate_context, ("arrival", "step_free"), "context",
+                 lambda _: "Visitor context validated"),
+        ToolStep(interpret_needs, ("context",), "result",
+                 lambda result: f'{result["arrival"]} arrival · {result["access_requirement"]}'),
+    ),
+    "routes": (
+        ToolStep(load_venue, ("context",), "entrances",
+                 lambda result: f"Loaded evidence for {len(result)} entrances"),
+        ToolStep(evaluate_schedule, ("context", "entrances"), "result", gate_observation),
+    ),
+    "evidence": (
+        ToolStep(check_evidence, ("context", "routes"), "checked", gate_observation),
+        ToolStep(choose_route, ("checked",), "result",
+                 lambda result: (f'{result["recommendation"]["name"]} recommended'
+                                 if result["recommendation"] else "No confirmed route selected")),
+    ),
 }
-
+VISIT_TOOLS = {
+    "needs": (
+        ToolStep(read_guide, ("request",), "guide",
+                 lambda result: f'Found {len(result["gates"])} gate records and {len(result["sessions"])} sessions'),
+        ToolStep(read_visit, ("request", "guide"), "context",
+                 lambda _: "Arrival, exit, and access requirements validated"),
+    ),
+    "routes": (
+        ToolStep(build_itinerary, ("guide", "context"), "itinerary",
+                 lambda result: f'{len(result["sessions"])} sessions overlap the visit'),
+        ToolStep(fetch_traffic, ("context", "itinerary"), "traffic",
+                 lambda result: f'Traffic: {result["status"]}'),
+    ),
+    "evidence": (
+        ToolStep(classify_gates, ("guide", "context"), "options",
+                 lambda result: ", ".join(
+                     f'{leg}: {sum(gate["status"] == "Eligible" for gate in gates)} eligible'
+                     for leg, gates in result.items())),
+        ToolStep(finalize_visit, ("options", "itinerary", "traffic", "guide", "context"), "plan"),
+    ),
+}
 
 def post_json(url: str, body: dict, headers: dict | None = None) -> dict:
     """Send a bounded JSON request to a configured service and decode its response."""
@@ -41,6 +83,8 @@ def select_tool(name: str, remaining: list, observations: list[str]) -> tuple:
     key = os.getenv("OPENAI_API_KEY")
     if not key:
         return expected, "deterministic"
+    if len(remaining) == 1:
+        return expected, "required"
     tools = [{"type": "function", "function": {
         "name": tool.__name__, "description": tool.__doc__,
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False}
@@ -65,58 +109,25 @@ def select_tool(name: str, remaining: list, observations: list[str]) -> tuple:
 
 def run_agent(slug: str, data: dict) -> dict:
     """Run each required action once, observing its result before the next action."""
-    name, tools = AGENTS[slug]
-    inputs = dict(data)
-    observations = []
-    trace = []
-    for index in range(len(tools)):
-        tool, mode = select_tool(name, list(tools[index:]), observations)
-        if tool is validate_context:
-            result = tool(inputs.get("arrival"), inputs.get("step_free"))
-            inputs["context"] = result
-        elif tool is interpret_needs:
-            result = tool(inputs["context"])
-        elif tool is load_venue:
-            result = tool(inputs["context"])
-            inputs["entrances"] = result
-        elif tool is evaluate_schedule:
-            result = tool(inputs["context"], inputs["entrances"])
-        elif tool is check_evidence:
-            result = tool(inputs["context"], inputs["routes"])
-            inputs["checked"] = result
-        else:
-            result = {"routes": inputs["checked"], **tool(inputs["checked"])}
-        if tool is load_venue:
-            observation = f"Loaded evidence for {len(result)} entrances"
-        elif tool is interpret_needs:
-            observation = f'{result["arrival"]} arrival · {result["access_requirement"]}'
-        elif isinstance(result, list):
-            observation = ", ".join(
-                f'{route["gate"]}: {route.get("status", "open" if route["open"] else "closed")}'
-                for route in result
-            )
-        elif tool is choose_route:
-            route = result["recommendation"]
-            observation = f'{route["name"]} recommended' if route else "No confirmed route selected"
-        else:
-            observation = "Visitor context validated"
-        observations.append(observation)
-        trace.append({"agent": name, "tool": tool.__name__, "mode": mode, "observation": observation})
+    state, trace = run_steps(AGENTS[slug], SAMPLE_TOOLS[slug], data, select_tool)
+    result = state["result"]
+    if slug == "evidence":
+        result = {"routes": state["checked"], **result}
     return {"data": result, "trace": trace}
-
 
 def agent_card(slug: str, origin: str) -> dict:
     """Describe the agent's A2A endpoint and supported skill."""
-    name, tools = AGENTS[slug]
+    name = AGENTS[slug]
+    tools = SAMPLE_TOOLS[slug]
     return {
-        "name": name, "description": tools[0].__doc__,
+        "name": name, "description": tools[0].action.__doc__,
         "url": f"{origin}{PREFIX}/agents/{slug}", "protocolVersion": "0.3.0",
         "version": "1.0.0", "preferredTransport": "JSONRPC", "capabilities": {},
         "defaultInputModes": ["application/json"], "defaultOutputModes": ["application/json"],
         "skills": [
-            {"id": slug, "name": name, "description": tools[0].__doc__, "tags": ["accessibility"]},
+            {"id": slug, "name": name, "description": tools[0].action.__doc__, "tags": ["accessibility"]},
             {"id": f"{slug}-event", "name": f"{name} for event guides",
-             "description": VISIT_TOOLS[slug][0][0].__doc__, "tags": ["event-guide"]},
+             "description": VISIT_TOOLS[slug][0].action.__doc__, "tags": ["event-guide"]},
         ],
     }
 
@@ -150,7 +161,7 @@ def dispatch(slug: str, request: dict) -> dict:
         message = str(error) if isinstance(error, ValueError) else "Invalid agent input."
         return {**response, "error": {"code": -32602, "message": message}}
     return {**response, "result": {
-        "kind": "task", "id": str(uuid4()), "contextId": message.get("contextId", str(uuid4())),
+        "kind": "task", "id": str(uuid4()), "contextId": (message.get("contextId") or str(uuid4())),
         "status": {"state": "completed"},
         "artifacts": [{"artifactId": str(uuid4()), "name": slug,
                        "parts": [{"kind": "data", "data": result}]}],
@@ -159,21 +170,9 @@ def dispatch(slug: str, request: dict) -> dict:
 
 def run_visit_agent(slug: str, state: dict) -> dict:
     """Run the two event tools and produce an artifact for the next agent."""
-    state = dict(state)
-    steps = VISIT_TOOLS[slug]
-    trace, observations = [], []
-    for index, (expected, inputs, output) in enumerate(steps):
-        name = AGENTS[slug][0]
-        tool, mode = select_tool(name, [step[0] for step in steps[index:]], observations)
-        state[output] = tool(*(state[key] for key in inputs))
-        observation = f"{output.replace('_', ' ').capitalize()} prepared"
-        if tool is fetch_traffic:
-            observation = f"Traffic: {state[output]['status']}"
-        observations.append(observation)
-        trace.append({"agent": name, "tool": expected.__name__, "mode": mode, "observation": observation})
+    state, trace = run_steps(AGENTS[slug], VISIT_TOOLS[slug], state, select_tool)
     state.pop("request", None)
     return {"data": state, "trace": trace}
-
 
 def plan_route(data: dict, event: bool = False) -> dict:
     """Coordinate three A2A handoffs and return verified route evidence."""
@@ -187,7 +186,7 @@ def plan_route(data: dict, event: bool = False) -> dict:
                    "params": {"message": {"kind": "message", "role": "user",
                                           "messageId": str(uuid4()), "contextId": context_id,
                                           "parts": [{"kind": "data", "data": data}]}}}
-        response = post_json(agent_card(slug, origin)["url"], request) if origin else dispatch(slug, request)
+        response = post_json(f"{origin}{PREFIX}/agents/{slug}", request) if origin else dispatch(slug, request)
         if "error" in response:
             raise ValueError(response["error"]["message"])
         artifact = response["result"]["artifacts"][0]["parts"][0]["data"]

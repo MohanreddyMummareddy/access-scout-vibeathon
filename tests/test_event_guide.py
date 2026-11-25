@@ -53,6 +53,12 @@ class EventGuideTest(unittest.TestCase):
         self.assertEqual((guide["gates"][0]["start"], guide["gates"][0]["end"]), ("16:00", "18:00"))
         self.assertEqual(guide["notes"], ["Late | 22:00–01:00"])
 
+    def test_time_first_rows_and_gate_words_in_session_titles(self):
+        guide = read_guide({"guide": "17:00–18:00 | Gate B | step-free\n"
+                                    "17:15–17:40 | Exit Strategy Workshop"})
+        self.assertEqual(guide["gates"][0]["name"], "Gate B")
+        self.assertEqual(guide["sessions"][0]["name"], "Exit Strategy Workshop")
+
     def test_coordinate_validation(self):
         self.assertEqual(coordinate("28.59, 77.22"), "28.59,77.22")
         for value in ("91,12", "9,181", "Station"):

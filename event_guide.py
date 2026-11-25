@@ -56,8 +56,17 @@ def read_guide(request: dict) -> dict:
         if period and start >= end:
             notes.append(line)
             continue
-        if GATE.search(line):
-            label = (line[:period.start()] if period else line.split("|", 1)[0]).strip(" |:-–")[:75]
+        before = (line[:period.start()] if period else line).strip(" |:-–—")
+        after = line[period.end():].strip(" |:-–—") if period else ""
+        label = (before or after).split("|", 1)[0].strip()
+        lowered_label = label.lower()
+        if GATE.search(label) and (
+            lowered_label.startswith(("gate ", "entrance "))
+            or lowered_label.endswith((" gate", " entrance", " exit"))
+            or re.fullmatch(r"exit(?: [a-z]| \d+)?", lowered_label)
+            or "exit only" in line.lower()
+        ):
+            label = label[:75]
             if not label:
                 notes.append(line)
                 continue
@@ -66,16 +75,14 @@ def read_guide(request: dict) -> dict:
             accessible = re.search(r"\bstep[- ]free\b", lowered)
             unconfirmed = re.search(r"\b(?:unconfirmed|unknown|unclear|check|confirm with)\b|\?", lowered)
             access = False if blocked else True if accessible and not unconfirmed else None
-            direction = "exit" if "exit only" in lowered or lowered.startswith("exit ") else (
+            direction = "exit" if "exit only" in lowered or label.lower().startswith("exit ") else (
                 "entry" if "entry only" in lowered or "entrance only" in lowered else "both"
             )
             point = next((coord for part in line.split("|") if (coord := coordinate(part))), None)
             gates.append({"name": label, "start": start, "end": end, "access": access, "point": point,
                           "direction": direction, "source": line})
-        elif period:
-            label = (line[:period.start()] or line[period.end():]).strip(" |:-–")
-            if label:
-                sessions.append({"name": label[:100], "start": start, "end": end, "source": line})
+        elif period and label:
+            sessions.append({"name": label[:100], "start": start, "end": end, "source": line})
         else:
             notes.append(line)
     return {"gates": gates[:20], "sessions": sessions[:25], "venue": venue, "notes": notes[:12]}
@@ -98,12 +105,16 @@ def build_itinerary(guide: dict, context: dict) -> dict:
     """List sessions that fit and alternate sessions that overlap the visit."""
     arrival, leave = context["arrival"], context["leave"]
     sessions = []
-    for session in sorted(guide["sessions"], key=lambda item: item["start"]):
+    ordered = sorted(guide["sessions"], key=lambda item: item["start"])
+    latest_end = ""
+    for position, session in enumerate(ordered):
         start, end = session["start"], session["end"]
+        next_session = ordered[position + 1] if position + 1 < len(ordered) else None
+        overlaps = start < latest_end or (next_session is not None and next_session["start"] < end)
         if start < leave and end > arrival:
             sessions.append({**session, "fit": "full" if arrival <= start and end <= leave else "partial",
-                             "overlaps": any(other is not session and start < other["end"]
-                                             and end > other["start"] for other in guide["sessions"])})
+                             "overlaps": overlaps})
+        latest_end = max(latest_end, end)
     options = classify_gates(guide, context)
     targets = {}
     for leg, gates in options.items():
