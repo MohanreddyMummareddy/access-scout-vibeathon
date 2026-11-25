@@ -8,6 +8,8 @@ Python 3.10 or newer is required. Run `python serve.py`, then open [http://127.0
 
 ## Walkthrough
 
+[Watch the narrated walkthrough](https://access-scout-vibeathon.vercel.app/access-scout-walkthrough.mp4).
+
 1. Select **Try 17:30**. Library Gate is open and the venue fixture documents a step-free entrance and path.
 2. Select **Try 18:30**. Library Gate has closed, Main Gate has steps, and Garden Gate lacks entrance evidence. The app gives the visitor a specific question to ask the venue.
 3. At 18:30, clear the step-free requirement and check again. Main Gate becomes the fastest eligible route.

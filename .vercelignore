@@ -1,5 +1,7 @@
 *.pdf
 *.mp4
+!public/access-scout-walkthrough.mp4
+.scout-media/
 .env*
 .git/
 .vercel/
