@@ -62,9 +62,10 @@ def read_guide(request: dict) -> dict:
                 notes.append(line)
                 continue
             lowered = line.lower()
-            blocked = re.search(r"\b(?:stairs|steps|not step[- ]free)\b", lowered)
+            blocked = re.search(r"\b(?:stairs|steps|(?:not|no) step[- ]free)\b", lowered)
             accessible = re.search(r"\bstep[- ]free\b", lowered)
-            access = False if blocked else True if accessible else None
+            unconfirmed = re.search(r"\b(?:unconfirmed|unknown|unclear|check|confirm with)\b|\?", lowered)
+            access = False if blocked else True if accessible and not unconfirmed else None
             direction = "exit" if "exit only" in lowered or lowered.startswith("exit ") else (
                 "entry" if "entry only" in lowered or "entrance only" in lowered else "both"
             )

@@ -65,7 +65,7 @@ class WorkflowTest(unittest.TestCase):
         guide = """Venue: Campus Hall
 Gate A | 16:00–18:00 | step-free | entry only | 28.59,77.22
 Gate B | 18:00–20:00 | step-free | exit only | 28.60,77.22
-Gate C | 16:00–20:00
+Gate C | 16:00–20:00 | step-free unconfirmed
 Talk | 17:00–18:00
 Workshop | 18:00–19:00
 Recital | 18:45–20:00"""
