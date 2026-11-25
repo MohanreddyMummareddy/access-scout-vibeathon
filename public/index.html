@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Plan a route to a campus festival using entrance hours and step-free access evidence.">
+  <title>Access Scout</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="top"><span class="mark" aria-hidden="true">⌖</span><strong>Access Scout</strong><span class="label">Demo venue</span></header>
+  <main>
+    <section class="hero">
+      <p class="venue">CAMPUS SPRING FESTIVAL</p>
+      <h1>Find your way in.</h1>
+      <p>Check which entrance is open and what the venue has confirmed about the route.</p>
+    </section>
+    <div class="workspace">
+      <form id="planner">
+        <h2>Plan your arrival</h2>
+        <label for="arrival">Arrival time</label>
+        <input id="arrival" type="time" value="17:30" required aria-describedby="local-time">
+        <p id="local-time" class="secondary">Venue local time · entrances open at 16:00</p>
+        <label class="check"><input id="step-free" type="checkbox" checked> I need a step-free route</label>
+        <button class="primary" type="submit">Check entrances</button>
+        <div class="samples" aria-label="Example arrival times">
+          <button type="button" data-example="17:30">Try 17:30</button>
+          <button type="button" data-example="18:30">Try 18:30</button>
+        </div>
+      </form>
+      <section class="results" aria-label="Route plan">
+        <p id="status" role="status" aria-live="polite">Check entrances to see your route options.</p>
+        <div id="result"></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

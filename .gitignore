@@ -1,0 +1,6 @@
+*.pdf
+*.mp4
+.env*
+.vercel/
+__pycache__/
+node_modules/
