@@ -57,6 +57,25 @@ class WorkflowTest(unittest.TestCase):
 
     def test_frontend_and_discovery(self):
         with urlopen(self.origin) as response:
-            self.assertIn(b"Find your way in.", response.read())
+            self.assertIn(b"Plan your event visit.", response.read())
         with urlopen(self.origin + "/api/scout/agents/evidence/.well-known/agent-card.json") as response:
             self.assertEqual(json.load(response)["protocolVersion"], "0.3.0")
+
+    def test_uploaded_guide_itinerary_and_gate_directions(self):
+        guide = """Venue: Campus Hall
+Gate A | 16:00–18:00 | step-free | entry only | 28.59,77.22
+Gate B | 18:00–20:00 | step-free | exit only | 28.60,77.22
+Gate C | 16:00–20:00
+Talk | 17:00–18:00
+Workshop | 18:00–19:00
+Recital | 18:45–20:00"""
+        request = {"guide": guide, "arrival": "17:30", "leave": "19:30",
+                   "step_free": True, "origin": "Station"}
+        plan = post_json(self.origin + "/api/scout/visit", request)
+        self.assertEqual(plan["targets"]["entry"]["name"], "Gate A")
+        self.assertEqual(plan["targets"]["exit"]["name"], "Gate B")
+        self.assertEqual(plan["entry"][2]["status"], "Needs confirmation")
+        self.assertEqual([item["fit"] for item in plan["sessions"]], ["partial", "full", "partial"])
+        self.assertTrue(plan["sessions"][1]["overlaps"])
+        self.assertEqual(plan["traffic"]["status"], "unavailable")
+        self.assertEqual(len(plan["trace"]), 6)

@@ -8,6 +8,8 @@ from uuid import uuid4
 
 from engine import (check_evidence, choose_route, evaluate_schedule, interpret_needs,
                     load_venue, validate_context)
+from event_guide import (build_itinerary, classify_gates, fetch_traffic, finalize_visit,
+                         read_guide, read_visit)
 
 
 AGENTS = {
@@ -16,6 +18,13 @@ AGENTS = {
     "evidence": ("Evidence Verifier", (check_evidence, choose_route)),
 }
 PREFIX = "/api/scout"
+VISIT_TOOLS = {
+    "needs": ((read_guide, ("request",), "guide"), (read_visit, ("request", "guide"), "context")),
+    "routes": ((build_itinerary, ("guide", "context"), "itinerary"),
+               (fetch_traffic, ("context", "itinerary"), "traffic")),
+    "evidence": ((classify_gates, ("guide", "context"), "options"),
+                 (finalize_visit, ("options", "itinerary", "traffic", "guide", "context"), "plan")),
+}
 
 
 def post_json(url: str, body: dict, headers: dict | None = None) -> dict:
@@ -104,7 +113,11 @@ def agent_card(slug: str, origin: str) -> dict:
         "url": f"{origin}{PREFIX}/agents/{slug}", "protocolVersion": "0.3.0",
         "version": "1.0.0", "preferredTransport": "JSONRPC", "capabilities": {},
         "defaultInputModes": ["application/json"], "defaultOutputModes": ["application/json"],
-        "skills": [{"id": slug, "name": name, "description": tools[0].__doc__, "tags": ["accessibility"]}],
+        "skills": [
+            {"id": slug, "name": name, "description": tools[0].__doc__, "tags": ["accessibility"]},
+            {"id": f"{slug}-event", "name": f"{name} for event guides",
+             "description": VISIT_TOOLS[slug][0][0].__doc__, "tags": ["event-guide"]},
+        ],
     }
 
 
@@ -120,7 +133,9 @@ def dispatch(slug: str, request: dict) -> dict:
         if message["role"] != "user" or part["kind"] != "data" or not isinstance(part["data"], dict):
             raise ValueError("Expected a user message containing one data part.")
         data = part["data"]
-        if slug != "needs":
+        if data.get("workflow") == "event":
+            result = run_visit_agent(slug, data["state"])
+        elif slug != "needs":
             context = data["context"]
             context = validate_context(context["arrival"], context["step_free"])
             data = {"context": context, "routes": data.get("routes")}
@@ -128,7 +143,9 @@ def dispatch(slug: str, request: dict) -> dict:
                 expected = evaluate_schedule(context)
                 if json.dumps(data["routes"], sort_keys=True) != json.dumps(expected, sort_keys=True):
                     raise ValueError("Route evidence does not match the venue fixture.")
-        result = run_agent(slug, data)
+            result = run_agent(slug, data)
+        else:
+            result = run_agent(slug, data)
     except (KeyError, TypeError, ValueError, AttributeError) as error:
         message = str(error) if isinstance(error, ValueError) else "Invalid agent input."
         return {**response, "error": {"code": -32602, "message": message}}
@@ -140,11 +157,31 @@ def dispatch(slug: str, request: dict) -> dict:
     }}
 
 
-def plan_route(data: dict) -> dict:
+def run_visit_agent(slug: str, state: dict) -> dict:
+    """Run the two event tools and produce an artifact for the next agent."""
+    state = dict(state)
+    steps = VISIT_TOOLS[slug]
+    trace, observations = [], []
+    for index, (expected, inputs, output) in enumerate(steps):
+        name = AGENTS[slug][0]
+        tool, mode = select_tool(name, [step[0] for step in steps[index:]], observations)
+        state[output] = tool(*(state[key] for key in inputs))
+        observation = f"{output.replace('_', ' ').capitalize()} prepared"
+        if tool is fetch_traffic:
+            observation = f"Traffic: {state[output]['status']}"
+        observations.append(observation)
+        trace.append({"agent": name, "tool": expected.__name__, "mode": mode, "observation": observation})
+    state.pop("request", None)
+    return {"data": state, "trace": trace}
+
+
+def plan_route(data: dict, event: bool = False) -> dict:
     """Coordinate three A2A handoffs and return verified route evidence."""
     context_id = str(uuid4())
     origin = os.getenv("SCOUT_A2A_ORIGIN", "").rstrip("/")
     trace = []
+    if event:
+        data = {"workflow": "event", "state": {"request": data}}
     for slug in AGENTS:
         request = {"jsonrpc": "2.0", "id": str(uuid4()), "method": "message/send",
                    "params": {"message": {"kind": "message", "role": "user",
@@ -155,8 +192,12 @@ def plan_route(data: dict) -> dict:
             raise ValueError(response["error"]["message"])
         artifact = response["result"]["artifacts"][0]["parts"][0]["data"]
         trace.extend(artifact["trace"])
-        if slug == "needs":
+        if event:
+            data["state"] = artifact["data"]
+        elif slug == "needs":
             data = {"context": artifact["data"]}
         elif slug == "routes":
             data["routes"] = artifact["data"]
+    if event:
+        return {**artifact["data"]["plan"], "trace": trace}
     return {**artifact["data"], "context": data["context"], "trace": trace}

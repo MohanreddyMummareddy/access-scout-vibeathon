@@ -2,13 +2,21 @@
 
 Access Scout helps a visitor at a campus festival find a route that meets their arrival time and step-free access needs. The proposed vertical is **accessibility and inclusive navigation**, pending confirmation against the official challenge verticals.
 
+## Plan your own event
+
+Upload a PDF or image or paste the guide. The browser extracts PDF text and runs English OCR for images or scanned PDF pages. It reads the first four pages and asks you to review the first 4,800 characters. The original file stays in the browser. The planner receives the reviewed text and planning fields.
+
+Put each gate or session on one line with a same-day time range, such as `Gate B | 16:00–18:00 | step-free | entry only | 28.59,77.22`. Enter arrival, exit, and an optional starting location. The planner lists eligible gates and sessions, with partial attendance and overlaps marked. Unreadable or unlabeled paths on a diagram require manual review.
+
+Directions links work with addresses or coordinates. With a server-side `TOMTOM_API_KEY` and endpoint coordinates, the Route Planner fetches current traffic in both directions and estimates when to leave if those conditions hold. A uniquely eligible gate with documented coordinates is used for that leg. Otherwise the planner uses the venue endpoint. This is a current snapshot, and availability depends on the provider.
+
 ## Run locally
 
 Python 3.10 or newer is required. Run `python serve.py`, then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 ## Walkthrough
 
-[Watch the narrated walkthrough](https://access-scout-vibeathon.vercel.app/access-scout-walkthrough.mp4).
+[Watch the narrated walkthrough of the original sample-venue flow](https://access-scout-vibeathon.vercel.app/access-scout-walkthrough.mp4).
 
 1. Select **Try 17:30**. Library Gate is open and the venue fixture documents a step-free entrance and path.
 2. Select **Try 18:30**. Library Gate has closed, Main Gate has steps, and Garden Gate lacks entrance evidence. The app gives the visitor a specific question to ask the venue.

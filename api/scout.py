@@ -37,13 +37,15 @@ class handler(BaseHTTPRequestHandler):
         parts = self.route()
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 16000:
-                raise ValueError("Request body must be between 1 and 16000 bytes.")
+            if not 0 < length <= 48000:
+                raise ValueError("Request body must be between 1 and 48000 bytes.")
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError("Expected a JSON object.")
             if parts == ["plan"]:
                 self.send_json(200, plan_route(payload))
+            elif parts == ["visit"]:
+                self.send_json(200, plan_route(payload, event=True))
             elif len(parts) == 2 and parts[0] == "agents" and parts[1] in AGENTS:
                 self.send_json(200, dispatch(parts[1], payload))
             else:

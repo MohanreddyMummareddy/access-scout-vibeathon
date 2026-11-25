@@ -3,19 +3,46 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Plan a route to a campus festival using entrance hours and step-free access evidence.">
+  <meta name="description" content="Plan an event visit from a brochure, schedule, or venue map.">
   <title>Access Scout</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
+  <script src="/visit.js" type="module"></script>
 </head>
 <body>
-  <header class="top"><span class="mark" aria-hidden="true">⌖</span><strong>Access Scout</strong><span class="label">Demo venue</span></header>
+  <header class="top"><span class="mark" aria-hidden="true">⌖</span><strong>Access Scout</strong><a class="label" href="#sample-venue">Try the sample venue</a></header>
   <main>
     <section class="hero">
-      <p class="venue">CAMPUS SPRING FESTIVAL</p>
-      <h1>Find your way in.</h1>
-      <p>Check which entrance is open and what the venue has confirmed about the route.</p>
+      <h1>Plan your event visit.</h1>
+      <p>Read a brochure or venue map, check entrances and exits, and see which sessions fit your visit.</p>
     </section>
+    <div class="workspace">
+      <form id="visit">
+        <h2>Event guide</h2>
+        <label for="guide-file">Upload a PDF or image</label>
+        <input id="guide-file" type="file" accept=".pdf,image/png,image/jpeg,image/webp">
+        <p id="upload-status" class="secondary" role="status">The file is read on your device. Review the text before sending it to the planner.</p>
+        <label for="guide-text">Guide text</label>
+        <textarea id="guide-text" maxlength="4800" rows="8" required aria-describedby="guide-help"></textarea>
+        <p id="guide-help" class="secondary">Put each gate or session on its own line. Example: Gate B | 16:00–18:00 | step-free. Include access details only when the guide confirms them.</p>
+        <button id="fill-guide" type="button">Use example guide</button>
+        <div class="visit-times">
+          <label>Arrival <input id="visit-arrival" type="time" value="17:30" required></label>
+          <label>Exit <input id="visit-leave" type="time" value="19:30" required></label>
+        </div>
+        <label class="check"><input id="visit-access" type="checkbox" checked> I need step-free access</label>
+        <label for="origin">Starting point <span class="secondary">(optional)</span></label>
+        <input id="origin" type="text" maxlength="180" placeholder="Address or latitude, longitude">
+        <label for="destination">Venue or gate location <span class="secondary">(optional)</span></label>
+        <input id="destination" type="text" maxlength="180" placeholder="Defaults to the guide’s venue">
+        <button class="primary" type="submit">Build visit plan</button>
+      </form>
+      <section class="results" aria-label="Visit plan">
+        <p id="visit-status" role="status">Add a guide to build your itinerary.</p>
+        <div id="visit-result"></div>
+      </section>
+    </div>
+    <h2 id="sample-venue" class="sample-heading">Campus spring festival sample</h2>
     <div class="workspace">
       <form id="planner">
         <h2>Plan your arrival</h2>

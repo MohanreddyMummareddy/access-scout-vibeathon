@@ -29,6 +29,7 @@ The supplied event PDF lists the submission window as 25 November 2026, 12:00 AM
 ## Prototype concept and architecture
 
 - Build Access Scout for visitors who need a step-free route at a campus event. Confirm the official vertical mapping before submission.
+- Support reviewing uploaded guide text, planning a visit around arrivals and exits, and showing session options. Label traffic estimates and keep provider credentials server-side.
 - Demonstrate how arrival time and entrance evidence change the recommended route. Surface unknown conditions and the question a visitor can ask the venue.
 - Use three agents with bounded ReAct tool loops: Needs Interpreter, Route Planner, and Evidence Verifier. Implement tools as typed Python functions with docstrings describing their purpose, inputs, outputs, and when to call them.
 - Use Agent2Agent (A2A) messages for agent handoffs, with Agent Cards and structured artifacts. Keep the coordinator responsible for workflow state, limits, and final delivery.

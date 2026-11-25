@@ -33,3 +33,9 @@ button:disabled { opacity: .7; cursor: progress; }
 .route li, .route p, .trace li { line-height: 1.55; }
 summary { cursor: pointer; font-weight: 650; padding: 8px 0; }
 @media (max-width: 690px) { .workspace { grid-template-columns: 1fr; } .hero { padding-top: 30px; } }
+textarea, input[type=text], input[type=file] { display: block; width: 100%; margin: 8px 0 14px; font: inherit; }
+textarea, input[type=text] { padding: 10px; border: 1px solid #678579; border-radius: 8px; color: inherit; }
+textarea { resize: vertical; }
+.visit-times { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.sample-heading { margin: 44px 0 16px; }
+.results a { color: #15543d; display: inline-block; margin: 0 18px 10px 0; }
