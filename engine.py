@@ -25,11 +25,22 @@ def validate_context(arrival: str, step_free: bool) -> dict:
     return {"arrival": arrival, "step_free": step_free}
 
 
-def evaluate_schedule(context: dict) -> list[dict]:
+def interpret_needs(context: dict) -> dict:
+    """Convert validated visitor preferences into route constraints before planning."""
+    return {**context, "access_requirement": "step-free" if context["step_free"] else "any entrance"}
+
+
+def load_venue(context: dict) -> list[dict]:
+    """Load the demo venue's entrances and evidence for the validated visitor plan."""
+    validate_context(context["arrival"], context["step_free"])
+    return list(VENUE)
+
+
+def evaluate_schedule(context: dict, entrances: list[dict] | None = None) -> list[dict]:
     """List gate routes and whether each entrance admits visitors at arrival."""
     return [
         {**route, "open": "16:00" <= context["arrival"] < route["close"]}
-        for route in VENUE
+        for route in (VENUE if entrances is None else entrances)
     ]
 
 

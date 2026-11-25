@@ -6,12 +6,13 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from engine import check_evidence, choose_route, evaluate_schedule, validate_context
+from engine import (check_evidence, choose_route, evaluate_schedule, interpret_needs,
+                    load_venue, validate_context)
 
 
 AGENTS = {
-    "needs": ("Needs Interpreter", (validate_context,)),
-    "routes": ("Route Planner", (evaluate_schedule,)),
+    "needs": ("Needs Interpreter", (validate_context, interpret_needs)),
+    "routes": ("Route Planner", (load_venue, evaluate_schedule)),
     "evidence": ("Evidence Verifier", (check_evidence, choose_route)),
 }
 PREFIX = "/api/scout"
@@ -40,7 +41,8 @@ def select_tool(name: str, remaining: list, observations: list[str]) -> tuple:
             "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             "messages": [{"role": "system", "content":
                           f"You are the {name}. Select the next tool. "
-                          "Classification must precede recommendation."},
+                          "Follow data dependencies: validate before interpreting needs, "
+                          "load venue evidence before checking hours, and classify before recommending."},
                          {"role": "user", "content": json.dumps(observations)}],
             "tools": tools, "tool_choice": "required", "parallel_tool_calls": False,
         }, {"Authorization": f"Bearer {key}"})
@@ -62,21 +64,33 @@ def run_agent(slug: str, data: dict) -> dict:
         tool, mode = select_tool(name, list(tools[index:]), observations)
         if tool is validate_context:
             result = tool(inputs.get("arrival"), inputs.get("step_free"))
-        elif tool is evaluate_schedule:
+            inputs["context"] = result
+        elif tool is interpret_needs:
             result = tool(inputs["context"])
+        elif tool is load_venue:
+            result = tool(inputs["context"])
+            inputs["entrances"] = result
+        elif tool is evaluate_schedule:
+            result = tool(inputs["context"], inputs["entrances"])
         elif tool is check_evidence:
             result = tool(inputs["context"], inputs["routes"])
             inputs["checked"] = result
         else:
             result = {"routes": inputs["checked"], **tool(inputs["checked"])}
-        observation = (
-            ", ".join(f'{route["gate"]}: {route.get("status", "open" if route["open"] else "closed")}'
-                      for route in result)
-            if isinstance(result, list) else
-            f'{result["recommendation"]["name"]} recommended' if result.get("recommendation") else
-            "No confirmed route selected" if "recommendation" in result else
-            "Visitor context validated"
-        )
+        if tool is load_venue:
+            observation = f"Loaded evidence for {len(result)} entrances"
+        elif tool is interpret_needs:
+            observation = f'{result["arrival"]} arrival · {result["access_requirement"]}'
+        elif isinstance(result, list):
+            observation = ", ".join(
+                f'{route["gate"]}: {route.get("status", "open" if route["open"] else "closed")}'
+                for route in result
+            )
+        elif tool is choose_route:
+            route = result["recommendation"]
+            observation = f'{route["name"]} recommended' if route else "No confirmed route selected"
+        else:
+            observation = "Visitor context validated"
         observations.append(observation)
         trace.append({"agent": name, "tool": tool.__name__, "mode": mode, "observation": observation})
     return {"data": result, "trace": trace}

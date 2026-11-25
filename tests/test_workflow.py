@@ -34,7 +34,9 @@ class WorkflowTest(unittest.TestCase):
     def test_before_and_after_closing_over_http(self):
         early = self.plan("17:30")
         self.assertEqual(early["recommendation"]["gate"], "B")
-        self.assertEqual(len(early["trace"]), 4)
+        self.assertEqual([action["tool"] for action in early["trace"]],
+                         ["validate_context", "interpret_needs", "load_venue",
+                          "evaluate_schedule", "check_evidence", "choose_route"])
         for time in ("18:00", "18:30"):
             late = self.plan(time)
             self.assertIsNone(late["recommendation"])

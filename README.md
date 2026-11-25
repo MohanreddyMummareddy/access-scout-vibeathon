@@ -17,7 +17,7 @@ Use these steps as one continuous walkthrough recording on the deployed site.
 
 ## Approach
 
-The Needs Interpreter validates visitor context. The Route Planner evaluates entrance hours. The Evidence Verifier classifies each path segment and selects a documented eligible route or reports what needs confirmation. Python tool docstrings describe each available action. Tools enforce venue evidence, so model output cannot override closure times or turn missing evidence into a recommendation.
+The Needs Interpreter runs `validate_context` then `interpret_needs`. The Route Planner runs `load_venue` then `evaluate_schedule`. The Evidence Verifier runs `check_evidence` then `choose_route`. Each agent passes the first tool's result to its second tool. Python tool docstrings describe each action, and model output cannot override verified venue evidence.
 
 Agents use a bounded action-and-observation loop. The default uses deterministic tool selection and requires no account. Set the server-side `OPENAI_API_KEY` and optionally `OPENAI_MODEL` for model-assisted tool selection. Calls that fail or select an action out of order fall back to the deterministic action, with the mode visible in the trace.
 
